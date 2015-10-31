@@ -10,13 +10,14 @@
 
 static bool ParseCmdLine(int argc, PCWSTR argv[]);
 static bool ResolveTarget(PCWSTR target);
+static void Usage(void);
 static void Ping(void);
 static void Ping6(void);
 
 static HANDLE hIcmpFile = INVALID_HANDLE_VALUE;
 static ULONG Timeout = 4000;
 static int Family = AF_UNSPEC;
-static USHORT RequestSize = 32;
+static ULONG RequestSize = 32;
 static ULONG PingCount = 4;
 static PADDRINFOW TargetAddrInfo = NULL;
 static PCWSTR TargetName = NULL;
@@ -94,7 +95,7 @@ ParseCmdLine(int argc, PCWSTR argv[])
 
     if (argc < 2)
     {
-        wprintf(L"Usage: ping [-4] [-6] target\n");
+        Usage();
 
         return false;
     }
@@ -105,6 +106,48 @@ ParseCmdLine(int argc, PCWSTR argv[])
         {
             switch (argv[i][1])
             {
+            case L'n':
+                if (i + 1 < argc)
+                {
+                    PingCount = wcstoul(argv[++i], NULL, 0);
+
+                    if (PingCount == 0)
+                    {
+                        wprintf(L"Bad value for option %s.\n", argv[i - 1]);
+
+                        return false;
+                    }
+                }
+                else
+                {
+                    wprintf(L"Value must be supplied for option %s.\n", argv[i]);
+
+                    return false;
+                }
+
+                break;
+
+            case L'l':
+                if (i + 1 < argc)
+                {
+                    RequestSize = wcstoul(argv[++i], NULL, 0);
+
+                    if (RequestSize >= 65500)
+                    {
+                        wprintf(L"Bad value for option %s.\n", argv[i - 1]);
+
+                        return false;
+                    }
+                }
+                else
+                {
+                    wprintf(L"Value must be supplied for option %s.\n", argv[i]);
+
+                    return false;
+                }
+
+                break;
+
             case L'4':
                 if (Family == AF_INET6)
                 {
@@ -199,7 +242,7 @@ Ping(void)
         hIcmpFile, NULL, NULL, NULL,
         INADDR_ANY,
         ((PSOCKADDR_IN)TargetAddrInfo->ai_addr)->sin_addr.s_addr,
-        SendBuffer, RequestSize, NULL,
+        SendBuffer, (USHORT)RequestSize, NULL,
         ReplyBuffer, ReplySize, Timeout);
 
     free(SendBuffer);
@@ -290,7 +333,7 @@ Ping6(void)
         hIcmpFile, NULL, NULL, NULL,
         &Source,
         (PSOCKADDR_IN6)TargetAddrInfo->ai_addr,
-        SendBuffer, RequestSize, NULL,
+        SendBuffer, (USHORT)RequestSize, NULL,
         ReplyBuffer, ReplySize, Timeout);
 
     free(SendBuffer);
@@ -337,4 +380,19 @@ Ping6(void)
     }
 
     free(ReplyBuffer);
+}
+
+static
+void
+Usage(void)
+{
+    wprintf(L"\n\
+Usage: ping [-n count] [-l size] [-4] [-6] target\n\
+\n\
+Options:\n\
+    -n count    Number of echo requests to send.\n\
+    -l size     Send buffer size.\n\
+    -4          Force using IPv4.\n\
+    -6          Force using IPv6.\n\
+\n");
 }
