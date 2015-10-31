@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <strsafe.h>
 #include <winsock2.h>
 #include <iphlpapi.h>
 #include <icmpapi.h>
@@ -21,6 +22,8 @@ static ULONG PingCount = 4;
 static PADDRINFOW TargetAddrInfo = NULL;
 static PCWSTR TargetName = NULL;
 static WCHAR TargetAddrStr[46];
+
+static WCHAR CanonName[128];
 
 int
 wmain(int argc, WCHAR *argv[])
@@ -74,7 +77,15 @@ wmain(int argc, WCHAR *argv[])
         return 1;
     }
 
-    wprintf(L"\nPinging %s with %u bytes of data:\n", TargetName, RequestSize);
+    if (*CanonName)
+    {
+        wprintf(L"\nPinging %s [%s] with %u bytes of data:\n", CanonName, TargetAddrStr, RequestSize);
+    }
+    else
+    {
+        wprintf(L"\nPinging %s with %u bytes of data:\n", TargetAddrStr, RequestSize);
+    }
+
     for (ULONG i = 0; i < PingCount; i++)
     {
         Ping();
@@ -259,13 +270,22 @@ ResolveTarget(PCWSTR target)
 
     ZeroMemory(&hints, sizeof(hints));
     hints.ai_family = Family;
+    hints.ai_flags = AI_NUMERICHOST;
 
     Status = GetAddrInfoW(target, NULL, &hints, &TargetAddrInfo);
     if (Status != 0)
     {
-        printf("GetAddrInfoW failed: %d\n", Status);
+        hints.ai_flags = AI_CANONNAME;
 
-        return false;
+        Status = GetAddrInfoW(target, NULL, &hints, &TargetAddrInfo);
+        if (Status != 0)
+        {
+            wprintf(L"GetAddrInfoW failed: %d\n", Status);
+
+            return false;
+        }
+
+        StringCchCopyNW(CanonName, _countof(CanonName), TargetAddrInfo->ai_canonname, _countof(CanonName) - 1);
     }
 
     Family = TargetAddrInfo->ai_family;
