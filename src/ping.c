@@ -20,11 +20,13 @@ static ULONG RequestSize = 32;
 static ULONG PingCount = 4;
 static PADDRINFOW TargetAddrInfo = NULL;
 static PCWSTR TargetName = NULL;
+static WCHAR TargetAddrStr[46];
 
 int
 wmain(int argc, WCHAR *argv[])
 {
     WSADATA wsaData;
+    DWORD StrLen = 46;
 
     if (!ParseCmdLine(argc, argv))
     {
@@ -40,6 +42,15 @@ wmain(int argc, WCHAR *argv[])
 
     if (!ResolveTarget(TargetName))
     {
+        WSACleanup();
+
+        return 1;
+    }
+
+    if (WSAAddressToStringW(TargetAddrInfo->ai_addr, (DWORD)TargetAddrInfo->ai_addrlen, NULL, TargetAddrStr, &StrLen) != 0)
+    {
+        wprintf(L"WSAAddressToStringW failed: %d\n", WSAGetLastError());
+        FreeAddrInfoW(TargetAddrInfo);
         WSACleanup();
 
         return 1;
@@ -354,24 +365,23 @@ Ping(void)
     }
     else
     {
-        WCHAR Dest[32];
-
         if (Family == AF_INET6)
         {
             PICMPV6_ECHO_REPLY pEchoReply;
 
             pEchoReply = (PICMPV6_ECHO_REPLY)ReplyBuffer;
 
-            if (InetNtopW(Family, &((PSOCKADDR_IN6)TargetAddrInfo->ai_addr)->sin6_addr, Dest, _countof(Dest)) == NULL)
-            {
-                wprintf(L"InetNtopW failed: %d\n", WSAGetLastError());
-                free(ReplyBuffer);
+            wprintf(L"Reply from %s:", TargetAddrStr);
 
-                exit(1);
+            if (pEchoReply->RoundTripTime == 0)
+            {
+                wprintf(L" time<1ms\n");
+            }
+            else
+            {
+                wprintf(L" time=%lums\n", pEchoReply->RoundTripTime);
             }
 
-            wprintf(L"Reply from %s:", Dest);
-            wprintf(L" time=%lums\n", pEchoReply->RoundTripTime);
         }
         else
         {
@@ -379,17 +389,18 @@ Ping(void)
 
             pEchoReply = (PICMP_ECHO_REPLY)ReplyBuffer;
 
-            if (InetNtopW(Family, &((PSOCKADDR_IN)TargetAddrInfo->ai_addr)->sin_addr, Dest, _countof(Dest)) == NULL)
-            {
-                wprintf(L"InetNtopW failed: %d\n", WSAGetLastError());
-                free(ReplyBuffer);
+            wprintf(L"Reply from %s:", TargetAddrStr);
+            wprintf(L" bytes=%u", pEchoReply->DataSize);
 
-                exit(1);
+            if (pEchoReply->RoundTripTime == 0)
+            {
+                wprintf(L" time<1ms");
+            }
+            else
+            {
+                wprintf(L" time=%lums", pEchoReply->RoundTripTime);
             }
 
-            wprintf(L"Reply from %s:", Dest);
-            wprintf(L" bytes=%u", pEchoReply->DataSize);
-            wprintf(L" time=%lums", pEchoReply->RoundTripTime);
             wprintf(L" TTL=%u\n", pEchoReply->Options.Ttl);
         }
     }
