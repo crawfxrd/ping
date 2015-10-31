@@ -172,6 +172,25 @@ ParseCmdLine(int argc, PCWSTR argv[])
 
                 break;
 
+            case L'w':
+                if (i + 1 < argc)
+                {
+                    Timeout = wcstoul(argv[++i], NULL, 0);
+
+                    if (Timeout < 1000)
+                    {
+                        Timeout = 1000;
+                    }
+                }
+                else
+                {
+                    wprintf(L"Value must be supplied for option %s.\n", argv[i]);
+
+                    return false;
+                }
+
+                break;
+
             case L'R':
                 if (Family == AF_INET)
                 {
@@ -431,11 +450,12 @@ void
 Usage(void)
 {
     wprintf(L"\n\
-Usage: ping [-n count] [-l size] [-4] [-6] target\n\
+Usage: ping [-n count] [-l size] [-4] [-6] [-w timeout] target\n\
 \n\
 Options:\n\
     -n count    Number of echo requests to send.\n\
     -l size     Send buffer size.\n\
+    -w timeout  Timeout in milliseconds to wait for each reply.\n\
     -4          Force using IPv4.\n\
     -6          Force using IPv6.\n\
 \n");
