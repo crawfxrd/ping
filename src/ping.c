@@ -12,7 +12,6 @@ static bool ParseCmdLine(int argc, PCWSTR argv[]);
 static bool ResolveTarget(PCWSTR target);
 static void Usage(void);
 static void Ping(void);
-static void Ping6(void);
 
 static HANDLE hIcmpFile = INVALID_HANDLE_VALUE;
 static ULONG Timeout = 4000;
@@ -67,14 +66,7 @@ wmain(int argc, WCHAR *argv[])
     wprintf(L"\nPinging %s with %u bytes of data:\n", TargetName, RequestSize);
     for (ULONG i = 0; i < PingCount; i++)
     {
-        if (Family == AF_INET6)
-        {
-            Ping6();
-        }
-        else
-        {
-            Ping();
-        }
+        Ping();
 
         if (i < PingCount - 1)
             Sleep(1000);
@@ -200,7 +192,7 @@ ParseCmdLine(int argc, PCWSTR argv[])
                 }
 
                 Family = AF_INET6;
-                
+
                 /* This option has been deprecated. Don't do anything. */
                 break;
 
@@ -289,7 +281,15 @@ Ping(void)
 
     ZeroMemory(SendBuffer, RequestSize);
 
-    ReplySize = sizeof(ICMP_ECHO_REPLY) + RequestSize + 8;
+    if (Family == AF_INET6)
+    {
+        ReplySize = sizeof(ICMPV6_ECHO_REPLY) + RequestSize + 8;
+    }
+    else
+    {
+        ReplySize = sizeof(ICMP_ECHO_REPLY) + RequestSize + 8;
+    }
+
     ReplyBuffer = malloc(ReplySize);
     if (ReplyBuffer == NULL)
     {
@@ -301,12 +301,32 @@ Ping(void)
 
     ZeroMemory(ReplyBuffer, ReplySize);
 
-    Status = IcmpSendEcho2Ex(
-        hIcmpFile, NULL, NULL, NULL,
-        INADDR_ANY,
-        ((PSOCKADDR_IN)TargetAddrInfo->ai_addr)->sin_addr.s_addr,
-        SendBuffer, (USHORT)RequestSize, NULL,
-        ReplyBuffer, ReplySize, Timeout);
+    if (Family == AF_INET6)
+    {
+        SOCKADDR_IN6 Source;
+
+        ZeroMemory(&Source, sizeof(Source));
+        Source.sin6_addr = in6addr_any;
+        Source.sin6_family = AF_INET6;
+
+        Status = Icmp6SendEcho2(
+            hIcmpFile, NULL, NULL, NULL,
+            &Source,
+            (PSOCKADDR_IN6)TargetAddrInfo->ai_addr,
+            SendBuffer, (USHORT)RequestSize, NULL,
+            ReplyBuffer, ReplySize, Timeout);
+
+    }
+    else
+    {
+        Status = IcmpSendEcho2Ex(
+            hIcmpFile, NULL, NULL, NULL,
+            INADDR_ANY,
+            ((PSOCKADDR_IN)TargetAddrInfo->ai_addr)->sin_addr.s_addr,
+            SendBuffer, (USHORT)RequestSize, NULL,
+            ReplyBuffer, ReplySize, Timeout);
+
+    }
 
     free(SendBuffer);
 
@@ -334,112 +354,44 @@ Ping(void)
     }
     else
     {
-        PICMP_ECHO_REPLY pEchoReply;
         WCHAR Dest[32];
 
-        pEchoReply = (PICMP_ECHO_REPLY)ReplyBuffer;
-
-        if (InetNtopW(Family, &((PSOCKADDR_IN)TargetAddrInfo->ai_addr)->sin_addr, Dest, _countof(Dest)) == NULL)
+        if (Family == AF_INET6)
         {
-            wprintf(L"InetNtopW failed: %d\n", WSAGetLastError());
-            free(ReplyBuffer);
+            PICMPV6_ECHO_REPLY pEchoReply;
 
-            exit(1);
+            pEchoReply = (PICMPV6_ECHO_REPLY)ReplyBuffer;
+
+            if (InetNtopW(Family, &((PSOCKADDR_IN6)TargetAddrInfo->ai_addr)->sin6_addr, Dest, _countof(Dest)) == NULL)
+            {
+                wprintf(L"InetNtopW failed: %d\n", WSAGetLastError());
+                free(ReplyBuffer);
+
+                exit(1);
+            }
+
+            wprintf(L"Reply from %s:", Dest);
+            wprintf(L" time=%lums\n", pEchoReply->RoundTripTime);
         }
-
-        wprintf(L"Reply from %s:", Dest);
-        wprintf(L" bytes=%u", pEchoReply->DataSize);
-        wprintf(L" time=%lums", pEchoReply->RoundTripTime);
-        wprintf(L" TTL=%u\n", pEchoReply->Options.Ttl);
-    }
-
-    free(ReplyBuffer);
-}
-
-static
-void
-Ping6(void)
-{
-    PVOID ReplyBuffer = NULL;
-    PVOID SendBuffer = NULL;
-    DWORD ReplySize = 0;
-    DWORD Status;
-    SOCKADDR_IN6 Source;
-
-    SendBuffer = malloc(RequestSize);
-    if (SendBuffer == NULL)
-    {
-        wprintf(L"malloc failed\n");
-
-        exit(1);
-    }
-
-    ZeroMemory(SendBuffer, RequestSize);
-
-    ReplySize = sizeof(ICMP_ECHO_REPLY) + RequestSize + 8;
-    ReplyBuffer = malloc(ReplySize);
-    if (ReplyBuffer == NULL)
-    {
-        wprintf(L"malloc failed\n");
-        free(SendBuffer);
-
-        exit(1);
-    }
-
-    ZeroMemory(ReplyBuffer, ReplySize);
-
-    ZeroMemory(&Source, sizeof(Source));
-    Source.sin6_addr = in6addr_any;
-    Source.sin6_family = AF_INET6;
-
-    Status = Icmp6SendEcho2(
-        hIcmpFile, NULL, NULL, NULL,
-        &Source,
-        (PSOCKADDR_IN6)TargetAddrInfo->ai_addr,
-        SendBuffer, (USHORT)RequestSize, NULL,
-        ReplyBuffer, ReplySize, Timeout);
-
-    free(SendBuffer);
-
-    if (Status == 0)
-    {
-        Status = GetLastError();
-        switch (Status)
+        else
         {
-        case IP_DEST_HOST_UNREACHABLE:
-            wprintf(L"Destination host unreachable.\n");
-            break;
+            PICMP_ECHO_REPLY pEchoReply;
 
-        case IP_DEST_NET_UNREACHABLE:
-            wprintf(L"Destination net unreachable.\n");
-            break;
+            pEchoReply = (PICMP_ECHO_REPLY)ReplyBuffer;
 
-        case IP_REQ_TIMED_OUT:
-            wprintf(L"Request timed out.\n");
-            break;
+            if (InetNtopW(Family, &((PSOCKADDR_IN)TargetAddrInfo->ai_addr)->sin_addr, Dest, _countof(Dest)) == NULL)
+            {
+                wprintf(L"InetNtopW failed: %d\n", WSAGetLastError());
+                free(ReplyBuffer);
 
-        default:
-            wprintf(L"PING: transmit failed. General failure. (Error %lu)\n", Status);
-            break;
+                exit(1);
+            }
+
+            wprintf(L"Reply from %s:", Dest);
+            wprintf(L" bytes=%u", pEchoReply->DataSize);
+            wprintf(L" time=%lums", pEchoReply->RoundTripTime);
+            wprintf(L" TTL=%u\n", pEchoReply->Options.Ttl);
         }
-    }
-    else
-    {
-        PICMPV6_ECHO_REPLY pEchoReply;
-        WCHAR Dest[32];
-        
-        pEchoReply = (PICMPV6_ECHO_REPLY)ReplyBuffer;
-        
-        if (InetNtopW(Family, &((PSOCKADDR_IN6)TargetAddrInfo->ai_addr)->sin6_addr, Dest, _countof(Dest)) == NULL)
-        {
-            wprintf(L"InetNtopW failed: %d\n", WSAGetLastError());
-            free(ReplyBuffer);
-
-            exit(1);
-        }
-
-        wprintf(L"Reply from %s:", Dest);
-        wprintf(L" time=%lums\n", pEchoReply->RoundTripTime);
     }
 
     free(ReplyBuffer);
