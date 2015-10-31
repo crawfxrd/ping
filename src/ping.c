@@ -148,6 +148,43 @@ ParseCmdLine(int argc, PCWSTR argv[])
 
                 break;
 
+            case L'v':
+                if (Family == AF_INET6)
+                {
+                    wprintf(L"The option %s is only supported for %s.\n", argv[i], L"IPv4");
+
+                    return false;
+                }
+
+                Family = AF_INET;
+
+                if (i + 1 < argc)
+                {
+                    /* This option has been deprecated. Don't do anything. */
+                    ++i;
+                }
+                else
+                {
+                    wprintf(L"Value must be supplied for option %s.\n", argv[i]);
+
+                    return false;
+                }
+
+                break;
+
+            case L'R':
+                if (Family == AF_INET)
+                {
+                    wprintf(L"The option %s is only supported for %s.\n", argv[i], L"IPv6");
+
+                    return false;
+                }
+
+                Family = AF_INET6;
+                
+                /* This option has been deprecated. Don't do anything. */
+                break;
+
             case L'4':
                 if (Family == AF_INET6)
                 {
@@ -172,13 +209,20 @@ ParseCmdLine(int argc, PCWSTR argv[])
 
             default:
                 wprintf(L"Unrecognized parameter %s\n", argv[i]);
-                break;
+                return false;
             }
         }
         else
         {
             TargetName = argv[i];
         }
+    }
+
+    if (TargetName == NULL)
+    {
+        wprintf(L"IP address must be specified.\n");
+
+        return false;
     }
 
     return true;
