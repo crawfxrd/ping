@@ -132,6 +132,8 @@ Usage: ping [-t] [-n count] [-l size] [-w timeout] [-4] [-6] target\n\
 \n\
 Options:\n\
     -t          Ping the specified host until stopped.\n\
+                To see statistics and continue - type Control-Break;\n\
+                To stop - type Control-C.\n\
     -n count    Number of echo requests to send.\n\
     -l size     Send buffer size.\n\
     -w timeout  Timeout in milliseconds to wait for each reply.\n\
