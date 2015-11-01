@@ -21,7 +21,7 @@ static ULONG RequestSize = 32;
 static ULONG PingCount = 4;
 static PADDRINFOW TargetAddrInfo = NULL;
 static PCWSTR TargetName = NULL;
-static WCHAR TargetAddrStr[46];
+static WCHAR Address[46];
 
 static WCHAR CanonName[128];
 
@@ -50,7 +50,7 @@ wmain(int argc, WCHAR *argv[])
         return 1;
     }
 
-    if (WSAAddressToStringW(TargetAddrInfo->ai_addr, (DWORD)TargetAddrInfo->ai_addrlen, NULL, TargetAddrStr, &StrLen) != 0)
+    if (WSAAddressToStringW(TargetAddrInfo->ai_addr, (DWORD)TargetAddrInfo->ai_addrlen, NULL, Address, &StrLen) != 0)
     {
         wprintf(L"WSAAddressToStringW failed: %d\n", WSAGetLastError());
         FreeAddrInfoW(TargetAddrInfo);
@@ -79,11 +79,11 @@ wmain(int argc, WCHAR *argv[])
 
     if (*CanonName)
     {
-        wprintf(L"\nPinging %s [%s] with %u bytes of data:\n", CanonName, TargetAddrStr, RequestSize);
+        wprintf(L"\nPinging %s [%s] with %u bytes of data:\n", CanonName, Address, RequestSize);
     }
     else
     {
-        wprintf(L"\nPinging %s with %u bytes of data:\n", TargetAddrStr, RequestSize);
+        wprintf(L"\nPinging %s with %u bytes of data:\n", Address, RequestSize);
     }
 
     for (ULONG i = 0; i < PingCount; i++)
@@ -105,8 +105,6 @@ static
 bool
 ParseCmdLine(int argc, PCWSTR argv[])
 {
-    UNREFERENCED_PARAMETER(argv);
-
     if (argc < 2)
     {
         Usage();
@@ -241,13 +239,23 @@ ParseCmdLine(int argc, PCWSTR argv[])
                 break;
 
             default:
-                wprintf(L"Unrecognized parameter %s\n", argv[i]);
+                wprintf(L"Bad option %s.\n", argv[i]);
+                Usage();
+
                 return false;
             }
         }
         else
         {
+            if (TargetName != NULL)
+            {
+                wprintf(L"Bad parameter %s.\n", argv[i]);
+
+                return false;
+            }
+
             TargetName = argv[i];
+
         }
     }
 
@@ -385,13 +393,13 @@ Ping(void)
     }
     else
     {
+        wprintf(L"Reply from %s:", Address);
+
         if (Family == AF_INET6)
         {
             PICMPV6_ECHO_REPLY pEchoReply;
 
             pEchoReply = (PICMPV6_ECHO_REPLY)ReplyBuffer;
-
-            wprintf(L"Reply from %s:", TargetAddrStr);
 
             if (pEchoReply->RoundTripTime == 0)
             {
@@ -409,7 +417,6 @@ Ping(void)
 
             pEchoReply = (PICMP_ECHO_REPLY)ReplyBuffer;
 
-            wprintf(L"Reply from %s:", TargetAddrStr);
             wprintf(L" bytes=%u", pEchoReply->DataSize);
 
             if (pEchoReply->RoundTripTime == 0)
