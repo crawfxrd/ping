@@ -13,6 +13,7 @@ static bool ParseCmdLine(int argc, PCWSTR argv[]);
 static bool ResolveTarget(PCWSTR target);
 static void Usage(void);
 static void Ping(void);
+static void PrintStats(void);
 
 static HANDLE hIcmpFile = INVALID_HANDLE_VALUE;
 static ULONG Timeout = 4000;
@@ -24,6 +25,12 @@ static PADDRINFOW TargetAddrInfo = NULL;
 static PCWSTR TargetName = NULL;
 static WCHAR Address[46];
 static WCHAR CanonName[128];
+
+static ULONG RTTMax = 0;
+static ULONG RTTMin = 0;
+static ULONG RTTTotal = 0;
+static ULONG EchosSent = 0;
+static ULONG EchosReceived = 0;
 
 int
 wmain(int argc, WCHAR *argv[])
@@ -99,11 +106,30 @@ wmain(int argc, WCHAR *argv[])
             ++i;
     }
 
+    PrintStats();
+
     IcmpCloseHandle(hIcmpFile);
     FreeAddrInfoW(TargetAddrInfo);
     WSACleanup();
 
     return 0;
+}
+
+static
+void
+Usage(void)
+{
+    wprintf(L"\n\
+Usage: ping [-t] [-n count] [-l size] [-w timeout] [-4] [-6] target\n\
+\n\
+Options:\n\
+    -t          Ping the specified host until stopped.\n\
+    -n count    Number of echo requests to send.\n\
+    -l size     Send buffer size.\n\
+    -w timeout  Timeout in milliseconds to wait for each reply.\n\
+    -4          Force using IPv4.\n\
+    -6          Force using IPv6.\n\
+\n");
 }
 
 static
@@ -350,6 +376,8 @@ Ping(void)
 
     ZeroMemory(ReplyBuffer, ReplySize);
 
+    ++EchosSent;
+
     if (Family == AF_INET6)
     {
         SOCKADDR_IN6 Source;
@@ -403,6 +431,8 @@ Ping(void)
     }
     else
     {
+        ++EchosReceived;
+
         wprintf(L"Reply from %s:", Address);
 
         if (Family == AF_INET6)
@@ -420,6 +450,17 @@ Ping(void)
                 wprintf(L" time=%lums\n", pEchoReply->RoundTripTime);
             }
 
+            if (pEchoReply->RoundTripTime < RTTMin || RTTMin == 0)
+            {
+                RTTMin = pEchoReply->RoundTripTime;
+            }
+
+            if (pEchoReply->RoundTripTime > RTTMax || RTTMax == 0)
+            {
+                RTTMax = pEchoReply->RoundTripTime;
+            }
+
+            RTTTotal += pEchoReply->RoundTripTime;
         }
         else
         {
@@ -439,6 +480,18 @@ Ping(void)
             }
 
             wprintf(L" TTL=%u\n", pEchoReply->Options.Ttl);
+
+            if (pEchoReply->RoundTripTime < RTTMin || RTTMin == 0)
+            {
+                RTTMin = pEchoReply->RoundTripTime;
+            }
+
+            if (pEchoReply->RoundTripTime > RTTMax || RTTMax == 0)
+            {
+                RTTMax = pEchoReply->RoundTripTime;
+            }
+
+            RTTTotal += pEchoReply->RoundTripTime;
         }
     }
 
@@ -447,17 +500,21 @@ Ping(void)
 
 static
 void
-Usage(void)
+PrintStats(void)
 {
-    wprintf(L"\n\
-Usage: ping [-t] [-n count] [-l size] [-w timeout] [-4] [-6] target\n\
-\n\
-Options:\n\
-    -t          Ping the specified host until stopped.\n\
-    -n count    Number of echo requests to send.\n\
-    -l size     Send buffer size.\n\
-    -w timeout  Timeout in milliseconds to wait for each reply.\n\
-    -4          Force using IPv4.\n\
-    -6          Force using IPv6.\n\
-\n");
+    ULONG EchosLost = EchosSent - EchosReceived;
+    int PercentLost = (int)((EchosLost / (double)EchosSent) * 100.0);
+
+    wprintf(L"\nPing statistics for %s:\n", Address);
+    wprintf(L"    Packets: Sent = %lu, Received = %lu, Lost = %lu (%d%% loss),\n",
+        EchosSent, EchosReceived, EchosLost, PercentLost);
+
+    if (EchosReceived > 0)
+    {
+        ULONG RTTAverage = RTTTotal / EchosReceived;
+
+        wprintf(L"Approximate round trip times in milli-seconds:\n");
+        wprintf(L"    Minimum = %lums, Maximum = %lums, Average = %lums\n",
+            RTTMin, RTTMax, RTTAverage);
+    }
 }
