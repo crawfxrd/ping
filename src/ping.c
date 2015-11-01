@@ -14,6 +14,7 @@ static bool ResolveTarget(PCWSTR target);
 static void Usage(void);
 static void Ping(void);
 static void PrintStats(void);
+static BOOL ConsoleCtrlHandler(DWORD ControlType);
 
 static HANDLE hIcmpFile = INVALID_HANDLE_VALUE;
 static ULONG Timeout = 4000;
@@ -41,6 +42,13 @@ wmain(int argc, WCHAR *argv[])
 
     if (!ParseCmdLine(argc, argv))
     {
+        return 1;
+    }
+    
+    if (!SetConsoleCtrlHandler(ConsoleCtrlHandler, TRUE))
+    {
+        wprintf(L"Failed to set control handler.\n");
+
         return 1;
     }
 
@@ -516,5 +524,31 @@ PrintStats(void)
         wprintf(L"Approximate round trip times in milli-seconds:\n");
         wprintf(L"    Minimum = %lums, Maximum = %lums, Average = %lums\n",
             RTTMin, RTTMax, RTTAverage);
+    }
+}
+
+static
+BOOL
+WINAPI
+ConsoleCtrlHandler(DWORD ControlType)
+{
+    switch (ControlType)
+    {
+    case CTRL_C_EVENT:
+        PrintStats();
+        wprintf(L"Control-C\n");
+        return FALSE;
+        
+    case CTRL_BREAK_EVENT:
+        PrintStats();
+        wprintf(L"Control-Break\n");
+        return TRUE;
+
+    case CTRL_CLOSE_EVENT:
+        PrintStats();
+        return FALSE;
+
+    default:
+        return FALSE;
     }
 }
