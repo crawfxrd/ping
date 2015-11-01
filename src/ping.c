@@ -14,7 +14,7 @@ static bool ResolveTarget(PCWSTR target);
 static void Usage(void);
 static void Ping(void);
 static void PrintStats(void);
-static BOOL ConsoleCtrlHandler(DWORD ControlType);
+static BOOL WINAPI ConsoleCtrlHandler(DWORD ControlType);
 
 static HANDLE hIcmpFile = INVALID_HANDLE_VALUE;
 static ULONG Timeout = 4000;
