@@ -19,16 +19,17 @@ static ULONG Timeout = 4000;
 static int Family = AF_UNSPEC;
 static ULONG RequestSize = 32;
 static ULONG PingCount = 4;
+static bool PingForever = false;
 static PADDRINFOW TargetAddrInfo = NULL;
 static PCWSTR TargetName = NULL;
 static WCHAR Address[46];
-
 static WCHAR CanonName[128];
 
 int
 wmain(int argc, WCHAR *argv[])
 {
     WSADATA wsaData;
+    ULONG i;
     DWORD StrLen = 46;
 
     if (!ParseCmdLine(argc, argv))
@@ -86,12 +87,16 @@ wmain(int argc, WCHAR *argv[])
         wprintf(L"\nPinging %s with %u bytes of data:\n", Address, RequestSize);
     }
 
-    for (ULONG i = 0; i < PingCount; i++)
+    Ping();
+    i = 1;
+
+    while (i < PingCount)
     {
+        Sleep(1000);
         Ping();
 
-        if (i < PingCount - 1)
-            Sleep(1000);
+        if (!PingForever)
+            ++i;
     }
 
     IcmpCloseHandle(hIcmpFile);
@@ -118,9 +123,14 @@ ParseCmdLine(int argc, PCWSTR argv[])
         {
             switch (argv[i][1])
             {
+            case L't':
+                PingForever = true;
+                break;
+
             case L'n':
                 if (i + 1 < argc)
                 {
+                    PingForever = false;
                     PingCount = wcstoul(argv[++i], NULL, 0);
 
                     if (PingCount == 0)
@@ -440,9 +450,10 @@ void
 Usage(void)
 {
     wprintf(L"\n\
-Usage: ping [-n count] [-l size] [-4] [-6] [-w timeout] target\n\
+Usage: ping [-t] [-n count] [-l size] [-w timeout] [-4] [-6] target\n\
 \n\
 Options:\n\
+    -t          Ping the specified host until stopped.\n\
     -n count    Number of echo requests to send.\n\
     -l size     Send buffer size.\n\
     -w timeout  Timeout in milliseconds to wait for each reply.\n\
