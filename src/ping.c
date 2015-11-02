@@ -133,7 +133,8 @@ void
 Usage(void)
 {
     wprintf(L"\n\
-Usage: ping [-t] [-n count] [-l size] [-w timeout] [-4] [-6] target\n\
+Usage: ping [-t] [-n count] [-l size] [-f] [-i TTL] [-v TOS]\n\
+            [-w timeout] [-4] [-6] target\n\
 \n\
 Options:\n\
     -t          Ping the specified host until stopped.\n\
@@ -143,6 +144,9 @@ Options:\n\
     -l size     Send buffer size.\n\
     -f          Set Don't Fragment flag in packet (IPv4-only).\n\
     -i TTL      Time To Live.\n\
+    -v TOS      Type Of Service (IPv4-only. This setting has been deprecated\n\
+                and has no effect on the type of service field in the IP\n\
+                Header).\n\
     -w timeout  Timeout in milliseconds to wait for each reply.\n\
     -4          Force using IPv4.\n\
     -6          Force using IPv6.\n\
