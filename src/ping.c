@@ -141,6 +141,7 @@ Options:\n\
                 To stop - type Control-C.\n\
     -n count    Number of echo requests to send.\n\
     -l size     Send buffer size.\n\
+    -f          Set Don't Fragment flag in packet (IPv4-only).\n\
     -i TTL      Time To Live.\n\
     -w timeout  Timeout in milliseconds to wait for each reply.\n\
     -4          Force using IPv4.\n\
@@ -210,6 +211,18 @@ ParseCmdLine(int argc, PCWSTR argv[])
                     return false;
                 }
 
+                break;
+
+            case L'f':
+                if (Family == AF_INET6)
+                {
+                    wprintf(L"The option %s is only supported for %s.\n", argv[i], L"IPv4");
+
+                    return false;
+                }
+
+                Family = AF_INET;
+                IpOptions.Flags |= IP_FLAG_DF;
                 break;
 
             case L'i':
