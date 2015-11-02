@@ -32,6 +32,9 @@ static ULONG RTTMin = 0;
 static ULONG RTTTotal = 0;
 static ULONG EchosSent = 0;
 static ULONG EchosReceived = 0;
+static ULONG EchosSuccessful = 0;
+
+static IP_OPTION_INFORMATION IpOptions;
 
 int
 wmain(int argc, WCHAR *argv[])
@@ -39,6 +42,8 @@ wmain(int argc, WCHAR *argv[])
     WSADATA wsaData;
     ULONG i;
     DWORD StrLen = 46;
+
+    IpOptions.Ttl = 255;
 
     if (!ParseCmdLine(argc, argv))
     {
@@ -136,6 +141,7 @@ Options:\n\
                 To stop - type Control-C.\n\
     -n count    Number of echo requests to send.\n\
     -l size     Send buffer size.\n\
+    -i TTL      Time To Live.\n\
     -w timeout  Timeout in milliseconds to wait for each reply.\n\
     -4          Force using IPv4.\n\
     -6          Force using IPv6.\n\
@@ -190,12 +196,35 @@ ParseCmdLine(int argc, PCWSTR argv[])
                 {
                     RequestSize = wcstoul(argv[++i], NULL, 0);
 
-                    if (RequestSize >= 65500)
+                    if (RequestSize > 65500)
                     {
                         wprintf(L"Bad value for option %s.\n", argv[i - 1]);
 
                         return false;
                     }
+                }
+                else
+                {
+                    wprintf(L"Value must be supplied for option %s.\n", argv[i]);
+
+                    return false;
+                }
+
+                break;
+
+            case L'i':
+                if (i + 1 < argc)
+                {
+                    ULONG Ttl = wcstoul(argv[++i], NULL, 0);
+
+                    if ((Ttl == 0) || (Ttl > 255))
+                    {
+                        wprintf(L"Bad value for option %s.\n", argv[i - 1]);
+
+                        return false;
+                    }
+
+                    IpOptions.Ttl = (UCHAR)Ttl;
                 }
                 else
                 {
@@ -400,9 +429,8 @@ Ping(void)
             hIcmpFile, NULL, NULL, NULL,
             &Source,
             (PSOCKADDR_IN6)TargetAddrInfo->ai_addr,
-            SendBuffer, (USHORT)RequestSize, NULL,
+            SendBuffer, (USHORT)RequestSize, &IpOptions,
             ReplyBuffer, ReplySize, Timeout);
-
     }
     else
     {
@@ -410,9 +438,8 @@ Ping(void)
             hIcmpFile, NULL, NULL, NULL,
             INADDR_ANY,
             ((PSOCKADDR_IN)TargetAddrInfo->ai_addr)->sin_addr.s_addr,
-            SendBuffer, (USHORT)RequestSize, NULL,
+            SendBuffer, (USHORT)RequestSize, &IpOptions,
             ReplyBuffer, ReplySize, Timeout);
-
     }
 
     free(SendBuffer);
@@ -443,7 +470,7 @@ Ping(void)
     {
         ++EchosReceived;
 
-        wprintf(L"Reply from %s:", Address);
+        wprintf(L"Reply from %s: ", Address);
 
         if (Family == AF_INET6)
         {
@@ -451,26 +478,42 @@ Ping(void)
 
             pEchoReply = (PICMPV6_ECHO_REPLY)ReplyBuffer;
 
-            if (pEchoReply->RoundTripTime == 0)
+            switch (pEchoReply->Status)
             {
-                wprintf(L" time<1ms\n");
-            }
-            else
-            {
-                wprintf(L" time=%lums\n", pEchoReply->RoundTripTime);
+            case IP_SUCCESS:
+                ++EchosSuccessful;
+
+                if (pEchoReply->RoundTripTime == 0)
+                {
+                    wprintf(L"time<1ms\n");
+                }
+                else
+                {
+                    wprintf(L"time=%lums\n", pEchoReply->RoundTripTime);
+                }
+
+                if (pEchoReply->RoundTripTime < RTTMin || RTTMin == 0)
+                {
+                    RTTMin = pEchoReply->RoundTripTime;
+                }
+
+                if (pEchoReply->RoundTripTime > RTTMax || RTTMax == 0)
+                {
+                    RTTMax = pEchoReply->RoundTripTime;
+                }
+
+                RTTTotal += pEchoReply->RoundTripTime;
+                break;
+
+            case IP_TTL_EXPIRED_TRANSIT:
+                wprintf(L"TTL expired in transit.\n");
+                break;
+
+            default:
+                wprintf(L"Echo reply returned %lu.\n", pEchoReply->Status);
+                break;
             }
 
-            if (pEchoReply->RoundTripTime < RTTMin || RTTMin == 0)
-            {
-                RTTMin = pEchoReply->RoundTripTime;
-            }
-
-            if (pEchoReply->RoundTripTime > RTTMax || RTTMax == 0)
-            {
-                RTTMax = pEchoReply->RoundTripTime;
-            }
-
-            RTTTotal += pEchoReply->RoundTripTime;
         }
         else
         {
@@ -478,30 +521,45 @@ Ping(void)
 
             pEchoReply = (PICMP_ECHO_REPLY)ReplyBuffer;
 
-            wprintf(L" bytes=%u", pEchoReply->DataSize);
-
-            if (pEchoReply->RoundTripTime == 0)
+            switch (pEchoReply->Status)
             {
-                wprintf(L" time<1ms");
-            }
-            else
-            {
-                wprintf(L" time=%lums", pEchoReply->RoundTripTime);
-            }
+            case IP_SUCCESS:
+                ++EchosSuccessful;
 
-            wprintf(L" TTL=%u\n", pEchoReply->Options.Ttl);
+                wprintf(L"bytes=%u ", pEchoReply->DataSize);
 
-            if (pEchoReply->RoundTripTime < RTTMin || RTTMin == 0)
-            {
-                RTTMin = pEchoReply->RoundTripTime;
+                if (pEchoReply->RoundTripTime == 0)
+                {
+                    wprintf(L"time<1ms ");
+                }
+                else
+                {
+                    wprintf(L"time=%lums ", pEchoReply->RoundTripTime);
+                }
+
+                wprintf(L"TTL=%u\n", pEchoReply->Options.Ttl);
+
+                if (pEchoReply->RoundTripTime < RTTMin || RTTMin == 0)
+                {
+                    RTTMin = pEchoReply->RoundTripTime;
+                }
+
+                if (pEchoReply->RoundTripTime > RTTMax || RTTMax == 0)
+                {
+                    RTTMax = pEchoReply->RoundTripTime;
+                }
+
+                RTTTotal += pEchoReply->RoundTripTime;
+                break;
+
+            case IP_TTL_EXPIRED_TRANSIT:
+                wprintf(L"TTL expired in transit.\n");
+                break;
+
+            default:
+                wprintf(L"Echo reply returned %lu.\n", pEchoReply->Status);
+                break;
             }
-
-            if (pEchoReply->RoundTripTime > RTTMax || RTTMax == 0)
-            {
-                RTTMax = pEchoReply->RoundTripTime;
-            }
-
-            RTTTotal += pEchoReply->RoundTripTime;
         }
     }
 
@@ -519,9 +577,9 @@ PrintStats(void)
     wprintf(L"    Packets: Sent = %lu, Received = %lu, Lost = %lu (%d%% loss),\n",
         EchosSent, EchosReceived, EchosLost, PercentLost);
 
-    if (EchosReceived > 0)
+    if (EchosSuccessful > 0)
     {
-        ULONG RTTAverage = RTTTotal / EchosReceived;
+        ULONG RTTAverage = RTTTotal / EchosSuccessful;
 
         wprintf(L"Approximate round trip times in milli-seconds:\n");
         wprintf(L"    Minimum = %lums, Maximum = %lums, Average = %lums\n",
