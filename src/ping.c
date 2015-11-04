@@ -26,6 +26,7 @@ static PADDRINFOW TargetAddrInfo = NULL;
 static PCWSTR TargetName = NULL;
 static WCHAR Address[46];
 static WCHAR CanonName[128];
+static bool ResolveAddress = false;
 
 static ULONG RTTMax = 0;
 static ULONG RTTMin = 0;
@@ -49,7 +50,7 @@ wmain(int argc, WCHAR *argv[])
     {
         return 1;
     }
-    
+
     if (!SetConsoleCtrlHandler(ConsoleCtrlHandler, TRUE))
     {
         wprintf(L"Failed to set control handler.\n");
@@ -133,13 +134,14 @@ void
 Usage(void)
 {
     wprintf(L"\n\
-Usage: ping [-t] [-n count] [-l size] [-f] [-i TTL] [-v TOS]\n\
+Usage: ping [-t] [-a] [-n count] [-l size] [-f] [-i TTL] [-v TOS]\n\
             [-w timeout] [-4] [-6] target\n\
 \n\
 Options:\n\
     -t          Ping the specified host until stopped.\n\
                 To see statistics and continue - type Control-Break;\n\
                 To stop - type Control-C.\n\
+    -a          Resolve addresses to hostnames.\n\
     -n count    Number of echo requests to send.\n\
     -l size     Send buffer size.\n\
     -f          Set Don't Fragment flag in packet (IPv4-only).\n\
@@ -172,6 +174,10 @@ ParseCmdLine(int argc, PCWSTR argv[])
             {
             case L't':
                 PingForever = true;
+                break;
+
+            case L'a':
+                ResolveAddress = true;
                 break;
 
             case L'n':
@@ -386,6 +392,21 @@ ResolveTarget(PCWSTR target)
         }
 
         StringCchCopyNW(CanonName, _countof(CanonName), TargetAddrInfo->ai_canonname, _countof(CanonName) - 1);
+    }
+    else if (ResolveAddress)
+    {
+        Status = GetNameInfoW(
+            TargetAddrInfo->ai_addr, TargetAddrInfo->ai_addrlen,
+            CanonName, _countof(CanonName),
+            NULL, 0,
+            NI_NAMEREQD);
+
+        if (Status != 0)
+        {
+            wprintf(L"GetNameInfoW failed: %d\n", Status);
+
+            return false;
+        }
     }
 
     Family = TargetAddrInfo->ai_family;
@@ -615,7 +636,7 @@ ConsoleCtrlHandler(DWORD ControlType)
         PrintStats();
         wprintf(L"Control-C\n");
         return FALSE;
-        
+
     case CTRL_BREAK_EVENT:
         PrintStats();
         wprintf(L"Control-Break\n");
