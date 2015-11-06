@@ -24,5 +24,5 @@ add_compile_options(/Gm-)
 add_compile_options(/GS)
 add_compile_options(/MP)
 
-add_executable(ping src/ping.c)
+add_executable(ping ping.c)
 target_link_libraries(ping ws2_32 iphlpapi)
