@@ -336,6 +336,10 @@ ParseCmdLine(int argc, PCWSTR argv[])
                 Family = AF_INET6;
                 break;
 
+            case L'?':
+                Usage();
+                return false;
+
             default:
                 wprintf(L"Bad option %s.\n", argv[i]);
                 Usage();
