@@ -3,11 +3,10 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <strsafe.h>
 #include <winsock2.h>
+#include <ws2tcpip.h>
 #include <iphlpapi.h>
 #include <icmpapi.h>
-#include <ws2tcpip.h>
 
 static bool ParseCmdLine(int argc, PCWSTR argv[]);
 static bool ResolveTarget(PCWSTR target);
@@ -94,6 +93,7 @@ wmain(int argc, WCHAR *argv[])
     if (hIcmpFile == INVALID_HANDLE_VALUE)
     {
         wprintf(L"IcmpCreateFile failed: %lu\n", GetLastError());
+        FreeAddrInfoW(TargetAddrInfo);
         WSACleanup();
 
         return 1;
@@ -338,6 +338,7 @@ ParseCmdLine(int argc, PCWSTR argv[])
 
             case L'?':
                 Usage();
+
                 return false;
 
             default:
@@ -357,7 +358,6 @@ ParseCmdLine(int argc, PCWSTR argv[])
             }
 
             TargetName = argv[i];
-
         }
     }
 
@@ -395,7 +395,7 @@ ResolveTarget(PCWSTR target)
             return false;
         }
 
-        StringCchCopyNW(CanonName, _countof(CanonName), TargetAddrInfo->ai_canonname, _countof(CanonName) - 1);
+        wcsncpy(CanonName, TargetAddrInfo->ai_canonname, _countof(TargetAddrInfo->ai_canonname));
     }
     else if (ResolveAddress)
     {
@@ -555,7 +555,6 @@ Ping(void)
                 wprintf(L"Echo reply returned %lu.\n", pEchoReply->Status);
                 break;
             }
-
         }
         else
         {
