@@ -24,7 +24,7 @@ static bool PingForever = false;
 static PADDRINFOW TargetAddrInfo = NULL;
 static PCWSTR TargetName = NULL;
 static WCHAR Address[46];
-static WCHAR CanonName[128];
+static WCHAR CanonName[NI_MAXHOST];
 static bool ResolveAddress = false;
 
 static ULONG RTTMax = 0;
@@ -395,7 +395,7 @@ ResolveTarget(PCWSTR target)
             return false;
         }
 
-        wcsncpy(CanonName, TargetAddrInfo->ai_canonname, _countof(TargetAddrInfo->ai_canonname));
+        wcsncpy(CanonName, TargetAddrInfo->ai_canonname, wcslen(TargetAddrInfo->ai_canonname));
     }
     else if (ResolveAddress)
     {
