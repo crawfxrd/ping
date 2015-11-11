@@ -1,6 +1,5 @@
 #define WIN32_LEAN_AND_MEAN
 
-#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <winsock2.h>
@@ -8,8 +7,8 @@
 #include <iphlpapi.h>
 #include <icmpapi.h>
 
-static bool ParseCmdLine(int argc, PCWSTR argv[]);
-static bool ResolveTarget(PCWSTR target);
+static BOOL ParseCmdLine(int argc, PCWSTR argv[]);
+static BOOL ResolveTarget(PCWSTR target);
 static void Usage(void);
 static void Ping(void);
 static void PrintStats(void);
@@ -20,12 +19,12 @@ static ULONG Timeout = 4000;
 static int Family = AF_UNSPEC;
 static ULONG RequestSize = 32;
 static ULONG PingCount = 4;
-static bool PingForever = false;
+static BOOL PingForever = FALSE;
 static PADDRINFOW TargetAddrInfo = NULL;
 static PCWSTR TargetName = NULL;
 static WCHAR Address[46];
 static WCHAR CanonName[NI_MAXHOST];
-static bool ResolveAddress = false;
+static BOOL ResolveAddress = FALSE;
 
 static ULONG RTTMax = 0;
 static ULONG RTTMin = 0;
@@ -156,14 +155,14 @@ Options:\n\
 }
 
 static
-bool
+BOOL
 ParseCmdLine(int argc, PCWSTR argv[])
 {
     if (argc < 2)
     {
         Usage();
 
-        return false;
+        return FALSE;
     }
 
     for (int i = 1; i < argc; i++)
@@ -173,31 +172,31 @@ ParseCmdLine(int argc, PCWSTR argv[])
             switch (argv[i][1])
             {
             case L't':
-                PingForever = true;
+                PingForever = TRUE;
                 break;
 
             case L'a':
-                ResolveAddress = true;
+                ResolveAddress = TRUE;
                 break;
 
             case L'n':
                 if (i + 1 < argc)
                 {
-                    PingForever = false;
+                    PingForever = FALSE;
                     PingCount = wcstoul(argv[++i], NULL, 0);
 
                     if (PingCount == 0)
                     {
                         wprintf(L"Bad value for option %s.\n", argv[i - 1]);
 
-                        return false;
+                        return FALSE;
                     }
                 }
                 else
                 {
                     wprintf(L"Value must be supplied for option %s.\n", argv[i]);
 
-                    return false;
+                    return FALSE;
                 }
 
                 break;
@@ -211,14 +210,14 @@ ParseCmdLine(int argc, PCWSTR argv[])
                     {
                         wprintf(L"Bad value for option %s.\n", argv[i - 1]);
 
-                        return false;
+                        return FALSE;
                     }
                 }
                 else
                 {
                     wprintf(L"Value must be supplied for option %s.\n", argv[i]);
 
-                    return false;
+                    return FALSE;
                 }
 
                 break;
@@ -228,7 +227,7 @@ ParseCmdLine(int argc, PCWSTR argv[])
                 {
                     wprintf(L"The option %s is only supported for %s.\n", argv[i], L"IPv4");
 
-                    return false;
+                    return FALSE;
                 }
 
                 Family = AF_INET;
@@ -244,7 +243,7 @@ ParseCmdLine(int argc, PCWSTR argv[])
                     {
                         wprintf(L"Bad value for option %s.\n", argv[i - 1]);
 
-                        return false;
+                        return FALSE;
                     }
 
                     IpOptions.Ttl = (UCHAR)Ttl;
@@ -253,7 +252,7 @@ ParseCmdLine(int argc, PCWSTR argv[])
                 {
                     wprintf(L"Value must be supplied for option %s.\n", argv[i]);
 
-                    return false;
+                    return FALSE;
                 }
 
                 break;
@@ -263,7 +262,7 @@ ParseCmdLine(int argc, PCWSTR argv[])
                 {
                     wprintf(L"The option %s is only supported for %s.\n", argv[i], L"IPv4");
 
-                    return false;
+                    return FALSE;
                 }
 
                 Family = AF_INET;
@@ -277,7 +276,7 @@ ParseCmdLine(int argc, PCWSTR argv[])
                 {
                     wprintf(L"Value must be supplied for option %s.\n", argv[i]);
 
-                    return false;
+                    return FALSE;
                 }
 
                 break;
@@ -296,7 +295,7 @@ ParseCmdLine(int argc, PCWSTR argv[])
                 {
                     wprintf(L"Value must be supplied for option %s.\n", argv[i]);
 
-                    return false;
+                    return FALSE;
                 }
 
                 break;
@@ -306,7 +305,7 @@ ParseCmdLine(int argc, PCWSTR argv[])
                 {
                     wprintf(L"The option %s is only supported for %s.\n", argv[i], L"IPv6");
 
-                    return false;
+                    return FALSE;
                 }
 
                 Family = AF_INET6;
@@ -319,7 +318,7 @@ ParseCmdLine(int argc, PCWSTR argv[])
                 {
                     wprintf(L"The option %s is only supported for %s.\n", argv[i], L"IPv4");
 
-                    return false;
+                    return FALSE;
                 }
 
                 Family = AF_INET;
@@ -330,7 +329,7 @@ ParseCmdLine(int argc, PCWSTR argv[])
                 {
                     wprintf(L"The option %s is only supported for %s.\n", argv[i], L"IPv6");
 
-                    return false;
+                    return FALSE;
                 }
 
                 Family = AF_INET6;
@@ -339,13 +338,13 @@ ParseCmdLine(int argc, PCWSTR argv[])
             case L'?':
                 Usage();
 
-                return false;
+                return FALSE;
 
             default:
                 wprintf(L"Bad option %s.\n", argv[i]);
                 Usage();
 
-                return false;
+                return FALSE;
             }
         }
         else
@@ -354,7 +353,7 @@ ParseCmdLine(int argc, PCWSTR argv[])
             {
                 wprintf(L"Bad parameter %s.\n", argv[i]);
 
-                return false;
+                return FALSE;
             }
 
             TargetName = argv[i];
@@ -365,14 +364,14 @@ ParseCmdLine(int argc, PCWSTR argv[])
     {
         wprintf(L"IP address must be specified.\n");
 
-        return false;
+        return FALSE;
     }
 
-    return true;
+    return TRUE;
 }
 
 static
-bool
+BOOL
 ResolveTarget(PCWSTR target)
 {
     ADDRINFOW hints;
@@ -392,7 +391,7 @@ ResolveTarget(PCWSTR target)
         {
             wprintf(L"GetAddrInfoW failed: %d\n", Status);
 
-            return false;
+            return FALSE;
         }
 
         wcsncpy(CanonName, TargetAddrInfo->ai_canonname, wcslen(TargetAddrInfo->ai_canonname));
@@ -409,13 +408,13 @@ ResolveTarget(PCWSTR target)
         {
             wprintf(L"GetNameInfoW failed: %d\n", Status);
 
-            return false;
+            return FALSE;
         }
     }
 
     Family = TargetAddrInfo->ai_family;
 
-    return true;
+    return TRUE;
 }
 
 static
