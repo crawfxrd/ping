@@ -461,7 +461,7 @@ Ping(void)
 
     if (Family == AF_INET6)
     {
-        SOCKADDR_IN6 Source;
+        struct sockaddr_in6 Source;
 
         ZeroMemory(&Source, sizeof(Source));
         Source.sin6_addr = in6addr_any;
@@ -470,15 +470,14 @@ Ping(void)
         Status = Icmp6SendEcho2(
             hIcmpFile, NULL, NULL, NULL,
             &Source,
-            (PSOCKADDR_IN6)TargetAddrInfo->ai_addr,
+            (struct sockaddr_in6 *)TargetAddrInfo->ai_addr,
             SendBuffer, (USHORT)RequestSize, &IpOptions,
             ReplyBuffer, ReplySize, Timeout);
     }
     else
     {
-        Status = IcmpSendEcho2Ex(
+        Status = IcmpSendEcho2(
             hIcmpFile, NULL, NULL, NULL,
-            INADDR_ANY,
             ((PSOCKADDR_IN)TargetAddrInfo->ai_addr)->sin_addr.s_addr,
             SendBuffer, (USHORT)RequestSize, &IpOptions,
             ReplyBuffer, ReplySize, Timeout);

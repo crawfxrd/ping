@@ -10,12 +10,12 @@ message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
 add_definitions(-DUNICODE -D_UNICODE)
 
-# Target Windows 7
+# Target Windows Server 2003
 add_definitions(
-    -DWINVER=0x601
-    -D_WIN32_IE=0x800
-    -D_WIN32_WINNT=0x601
-    -D_WIN32_WINDOWS=0x601
+    -DWINVER=0x502
+    -D_WIN32_IE=0x600
+    -D_WIN32_WINNT=0x502
+    -D_WIN32_WINDOWS=0x502
 )
 
 add_compile_options(/nologo)
