@@ -7,6 +7,9 @@
 #include <iphlpapi.h>
 #include <icmpapi.h>
 
+#define SIZEOF_ICMP_ERROR 8
+#define SIZEOF_IO_STATUS_BLOCK 8
+
 static BOOL ParseCmdLine(int argc, PCWSTR argv[]);
 static BOOL ResolveTarget(PCWSTR target);
 static void Usage(void);
@@ -438,12 +441,14 @@ Ping(void)
 
     if (Family == AF_INET6)
     {
-        ReplySize = sizeof(ICMPV6_ECHO_REPLY) + RequestSize + 8;
+        ReplySize += sizeof(ICMPV6_ECHO_REPLY);
     }
     else
     {
-        ReplySize = sizeof(ICMP_ECHO_REPLY) + RequestSize + 8;
+        ReplySize += sizeof(ICMP_ECHO_REPLY);
     }
+
+    ReplySize += RequestSize + SIZEOF_ICMP_ERROR + SIZEOF_IO_STATUS_BLOCK;
 
     ReplyBuffer = malloc(ReplySize);
     if (ReplyBuffer == NULL)
