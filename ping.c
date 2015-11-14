@@ -23,7 +23,7 @@ static int Family = AF_UNSPEC;
 static ULONG RequestSize = 32;
 static ULONG PingCount = 4;
 static BOOL PingForever = FALSE;
-static PADDRINFOW TargetAddrInfo = NULL;
+static PADDRINFOW Target = NULL;
 static PCWSTR TargetName = NULL;
 static WCHAR Address[46];
 static WCHAR CanonName[NI_MAXHOST];
@@ -45,7 +45,7 @@ wmain(int argc, WCHAR *argv[])
     ULONG i;
     DWORD StrLen = 46;
 
-    IpOptions.Ttl = 255;
+    IpOptions.Ttl = 128;
 
     if (!ParseCmdLine(argc, argv))
     {
@@ -73,10 +73,10 @@ wmain(int argc, WCHAR *argv[])
         return 1;
     }
 
-    if (WSAAddressToStringW(TargetAddrInfo->ai_addr, (DWORD)TargetAddrInfo->ai_addrlen, NULL, Address, &StrLen) != 0)
+    if (WSAAddressToStringW(Target->ai_addr, (DWORD)Target->ai_addrlen, NULL, Address, &StrLen) != 0)
     {
         wprintf(L"WSAAddressToStringW failed: %d\n", WSAGetLastError());
-        FreeAddrInfoW(TargetAddrInfo);
+        FreeAddrInfoW(Target);
         WSACleanup();
 
         return 1;
@@ -95,7 +95,7 @@ wmain(int argc, WCHAR *argv[])
     if (hIcmpFile == INVALID_HANDLE_VALUE)
     {
         wprintf(L"IcmpCreateFile failed: %lu\n", GetLastError());
-        FreeAddrInfoW(TargetAddrInfo);
+        FreeAddrInfoW(Target);
         WSACleanup();
 
         return 1;
@@ -125,7 +125,7 @@ wmain(int argc, WCHAR *argv[])
     PrintStats();
 
     IcmpCloseHandle(hIcmpFile);
-    FreeAddrInfoW(TargetAddrInfo);
+    FreeAddrInfoW(Target);
     WSACleanup();
 
     return 0;
@@ -384,12 +384,12 @@ ResolveTarget(PCWSTR target)
     hints.ai_family = Family;
     hints.ai_flags = AI_NUMERICHOST;
 
-    Status = GetAddrInfoW(target, NULL, &hints, &TargetAddrInfo);
+    Status = GetAddrInfoW(target, NULL, &hints, &Target);
     if (Status != 0)
     {
         hints.ai_flags = AI_CANONNAME;
 
-        Status = GetAddrInfoW(target, NULL, &hints, &TargetAddrInfo);
+        Status = GetAddrInfoW(target, NULL, &hints, &Target);
         if (Status != 0)
         {
             wprintf(L"GetAddrInfoW failed: %d\n", Status);
@@ -397,12 +397,12 @@ ResolveTarget(PCWSTR target)
             return FALSE;
         }
 
-        wcsncpy(CanonName, TargetAddrInfo->ai_canonname, wcslen(TargetAddrInfo->ai_canonname));
+        wcsncpy(CanonName, Target->ai_canonname, wcslen(Target->ai_canonname));
     }
     else if (ResolveAddress)
     {
         Status = GetNameInfoW(
-            TargetAddrInfo->ai_addr, TargetAddrInfo->ai_addrlen,
+            Target->ai_addr, Target->ai_addrlen,
             CanonName, _countof(CanonName),
             NULL, 0,
             NI_NAMEREQD);
@@ -415,7 +415,7 @@ ResolveTarget(PCWSTR target)
         }
     }
 
-    Family = TargetAddrInfo->ai_family;
+    Family = Target->ai_family;
 
     return TRUE;
 }
@@ -474,7 +474,7 @@ Ping(void)
         Status = Icmp6SendEcho2(
             hIcmpFile, NULL, NULL, NULL,
             &Source,
-            (struct sockaddr_in6 *)TargetAddrInfo->ai_addr,
+            (struct sockaddr_in6 *)Target->ai_addr,
             SendBuffer, (USHORT)RequestSize, &IpOptions,
             ReplyBuffer, ReplySize, Timeout);
     }
@@ -482,7 +482,7 @@ Ping(void)
     {
         Status = IcmpSendEcho2(
             hIcmpFile, NULL, NULL, NULL,
-            ((PSOCKADDR_IN)TargetAddrInfo->ai_addr)->sin_addr.s_addr,
+            ((PSOCKADDR_IN)Target->ai_addr)->sin_addr.s_addr,
             SendBuffer, (USHORT)RequestSize, &IpOptions,
             ReplyBuffer, ReplySize, Timeout);
     }
