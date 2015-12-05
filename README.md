@@ -1,7 +1,7 @@
 ping
 ====
 
-An implementation of Microsoft's `ping` utility for Windows 7 and later.
+An implementation of Microsoft's `ping` utility for Windows Server 2003 and later.
 
 ## License
 

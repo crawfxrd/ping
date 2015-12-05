@@ -10,7 +10,7 @@
 #define SIZEOF_ICMP_ERROR 8
 #define SIZEOF_IO_STATUS_BLOCK 8
 
-static BOOL ParseCmdLine(int argc, PCWSTR argv[]);
+static BOOL ParseCmdLine(int argc, PWSTR argv[]);
 static BOOL ResolveTarget(PCWSTR target);
 static void Usage(void);
 static void Ping(void);
@@ -159,8 +159,10 @@ Options:\n\
 
 static
 BOOL
-ParseCmdLine(int argc, PCWSTR argv[])
+ParseCmdLine(int argc, PWSTR argv[])
 {
+    int i;
+
     if (argc < 2)
     {
         Usage();
@@ -168,7 +170,7 @@ ParseCmdLine(int argc, PCWSTR argv[])
         return FALSE;
     }
 
-    for (int i = 1; i < argc; i++)
+    for (i = 1; i < argc; i++)
     {
         if (argv[i][0] == L'-' || argv[i][0] == L'/')
         {
