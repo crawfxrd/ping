@@ -470,7 +470,6 @@ Ping(void)
         struct sockaddr_in6 Source;
 
         ZeroMemory(&Source, sizeof(Source));
-        Source.sin6_addr = in6addr_any;
         Source.sin6_family = AF_INET6;
 
         Status = Icmp6SendEcho2(
