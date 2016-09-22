@@ -1,10 +1,10 @@
 cmake_minimum_required(VERSION 3.2.0)
 
-project(ping)
-
 if(NOT DEFINED CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Debug CACHE STRING "")
 endif()
+
+project(ping)
 
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 

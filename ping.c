@@ -1,3 +1,25 @@
+/*
+ * Copyright (c) 2015 Tim Crawford
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
 #define WIN32_LEAN_AND_MEAN
 
 #include <stdio.h>
@@ -6,6 +28,25 @@
 #include <ws2tcpip.h>
 #include <iphlpapi.h>
 #include <icmpapi.h>
+
+#ifdef __REACTOS__
+
+#define NDEBUG
+#include <debug.h>
+
+#else
+
+#ifndef NDEBUG
+#define DPRINT(fmt, ...) \
+    do { \
+        if (DbgPrint("(%s:%d) " fmt, __RELFILE__, __LINE__, ## __VA_ARGS__)) \
+            DbgPrint("(%s:%d) DbgPrint() failed!\n", __RELFILE__, __LINE__); \
+    } while (0)
+#else
+#define DPRINT(fmt, ...)
+#endif
+
+#endif // __REACTOS__
 
 #define SIZEOF_ICMP_ERROR 8
 #define SIZEOF_IO_STATUS_BLOCK 8
@@ -54,14 +95,14 @@ wmain(int argc, WCHAR *argv[])
 
     if (!SetConsoleCtrlHandler(ConsoleCtrlHandler, TRUE))
     {
-        wprintf(L"Failed to set control handler.\n");
+        DPRINT("Failed to set control handler.\n");
 
         return 1;
     }
 
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0)
     {
-        wprintf(L"WSAStartup failed\n");
+        DPRINT("WSAStartup failed\n");
 
         return 1;
     }
@@ -75,7 +116,7 @@ wmain(int argc, WCHAR *argv[])
 
     if (WSAAddressToStringW(Target->ai_addr, (DWORD)Target->ai_addrlen, NULL, Address, &StrLen) != 0)
     {
-        wprintf(L"WSAAddressToStringW failed: %d\n", WSAGetLastError());
+        DPRINT("WSAAddressToStringW failed: %d\n", WSAGetLastError());
         FreeAddrInfoW(Target);
         WSACleanup();
 
@@ -94,7 +135,7 @@ wmain(int argc, WCHAR *argv[])
 
     if (hIcmpFile == INVALID_HANDLE_VALUE)
     {
-        wprintf(L"IcmpCreateFile failed: %lu\n", GetLastError());
+        DPRINT("IcmpCreateFile failed: %lu\n", GetLastError());
         FreeAddrInfoW(Target);
         WSACleanup();
 
@@ -119,7 +160,7 @@ wmain(int argc, WCHAR *argv[])
         Ping();
 
         if (!PingForever)
-            ++i;
+            i++;
     }
 
     PrintStats();
@@ -275,7 +316,7 @@ ParseCmdLine(int argc, PWSTR argv[])
                 if (i + 1 < argc)
                 {
                     /* This option has been deprecated. Don't do anything. */
-                    ++i;
+                    i++;
                 }
                 else
                 {
@@ -394,7 +435,7 @@ ResolveTarget(PCWSTR target)
         Status = GetAddrInfoW(target, NULL, &hints, &Target);
         if (Status != 0)
         {
-            wprintf(L"GetAddrInfoW failed: %d\n", Status);
+            DPRINT(L"GetAddrInfoW failed: %d\n", Status);
 
             return FALSE;
         }
@@ -411,7 +452,7 @@ ResolveTarget(PCWSTR target)
 
         if (Status != 0)
         {
-            wprintf(L"GetNameInfoW failed: %d\n", Status);
+            DPRINT(L"GetNameInfoW failed: %d\n", WSAGetLastError());
 
             return FALSE;
         }
@@ -434,7 +475,7 @@ Ping(void)
     SendBuffer = malloc(RequestSize);
     if (SendBuffer == NULL)
     {
-        wprintf(L"malloc failed\n");
+        wprintf(L"Not enough resources available.\n");
 
         exit(1);
     }
@@ -455,7 +496,7 @@ Ping(void)
     ReplyBuffer = malloc(ReplySize);
     if (ReplyBuffer == NULL)
     {
-        wprintf(L"malloc failed\n");
+        wprintf(L"Not enough resources available.\n");
         free(SendBuffer);
 
         exit(1);
@@ -463,7 +504,7 @@ Ping(void)
 
     ZeroMemory(ReplyBuffer, ReplySize);
 
-    ++EchosSent;
+    EchosSent++;
 
     if (Family == AF_INET6)
     {
@@ -514,7 +555,7 @@ Ping(void)
     }
     else
     {
-        ++EchosReceived;
+        EchosReceived++;
 
         wprintf(L"Reply from %s: ", Address);
 
@@ -527,7 +568,7 @@ Ping(void)
             switch (pEchoReply->Status)
             {
             case IP_SUCCESS:
-                ++EchosSuccessful;
+                EchosSuccessful++;
 
                 if (pEchoReply->RoundTripTime == 0)
                 {
@@ -569,7 +610,7 @@ Ping(void)
             switch (pEchoReply->Status)
             {
             case IP_SUCCESS:
-                ++EchosSuccessful;
+                EchosSuccessful++;
 
                 wprintf(L"bytes=%u ", pEchoReply->DataSize);
 
